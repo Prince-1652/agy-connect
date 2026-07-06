@@ -1,10 +1,16 @@
+<div align="center">
+
 # agy-connect
 
 ![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![PyPI](https://img.shields.io/pypi/v/agy-connect.svg)
 
-A Python library that lets you use Antigravity CLI from Python with a clean API for chat, streaming, and session management.
+**A Python library that lets you use Antigravity CLI from Python with a clean API for chat, streaming, and session management.**
+
+</div>
+
+
 
 ## Why agy-connect?
 
