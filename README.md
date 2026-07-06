@@ -173,7 +173,13 @@ The `Chat` and `Session` objects expose the following methods:
 
 ---
 
+<div align="center">
+
 ## Architecture & Design
+
+![agy-connect Architecture](assets/architecture.png)
+
+</div>
 
 `agy-connect` uses an event-driven, state-machine architecture under the hood to ensure predictable process execution.
 
