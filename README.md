@@ -9,7 +9,7 @@ It completely abstracts away all subprocess management, inter-process communicat
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 * **Zero API Key Requirement:** `agy-connect` securely piggybacks off your local Antigravity CLI's existing credentials and setup.
 * **Native Context Memory:** Takes full advantage of `agy`'s native memory management by isolating chats into physical directory structures. Conversations maintain perfect memory across multiple requests!
@@ -21,7 +21,7 @@ It completely abstracts away all subprocess management, inter-process communicat
 
 ---
 
-## 📦 Installation
+## Installation
 
 To install `agy-connect`, use `pip`:
 
@@ -34,7 +34,7 @@ pip install agy-connect
 
 ---
 
-## 💻 Usage & Quick Start
+## Usage & Quick Start
 
 ### 1. Synchronous Chatbot (Simple Scripts)
 The `Chat` class provides an easy-to-use, blocking interface perfect for automation scripts.
@@ -101,7 +101,7 @@ asyncio.run(run_server())
 
 ---
 
-## 🏗 Architecture & Design
+## Architecture & Design
 
 `agy-connect` uses an event-driven, state-machine architecture under the hood to ensure predictable process execution.
 
@@ -121,7 +121,7 @@ Every adapter tracks its state strictly using `agy_connect.constants`:
 
 ---
 
-## 🛠 Configuration
+## Configuration
 
 You can customize the library's behavior entirely by injecting a `Config` object:
 
@@ -140,11 +140,11 @@ chat = Chat(config)
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions, issues, and feature requests are welcome!
 Feel free to check the [issues page](https://github.com/Prince-1652/agy-connect/issues).
 
-## 📝 License
+## License
 
 This project is [MIT](https://github.com/Prince-1652/agy-connect/blob/main/LICENSE) licensed.
