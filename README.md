@@ -2,22 +2,43 @@
 
 ![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
+![PyPI](https://img.shields.io/pypi/v/agy-connect.svg)
 
-**agy-connect** is a production-grade Python runtime and SDK that bridges your Python applications seamlessly with the Antigravity CLI (`agy`).
+A Python library that lets you use Antigravity CLI from Python with a clean API for chat, streaming, and session management.
 
-It completely abstracts away all subprocess management, inter-process communication, and session state tracking, providing a clean, robust, and strongly-typed API for interacting with the `agy` AI coding assistant natively in Python.
+## Why agy-connect?
 
----
+Instead of managing subprocesses, stdin/stdout, session recovery, streaming, and conversation state yourself, `agy-connect` provides a clean Python API so you can focus on building applications. 
+
+**The biggest advantage:** You get programmatic access to state-of-the-art LLMs entirely for free through your local Antigravity CLI, without paying for API keys!
+
+## Supported Models
+
+Since `agy-connect` securely piggybacks off your local CLI, it supports all native Antigravity models:
+- Gemini 3.5 Flash (Low, Medium, High)
+- Gemini 3.1 Pro (Low, High)
+- Claude Sonnet 4.6 (Thinking)
+- Claude Opus 4.6 (Thinking)
+- GPT-OSS 120B (Medium)
+
+*Note: `agy-connect` uses whichever model is currently selected in your CLI. To change the model, simply open your terminal, run `agy`, type `/model` to select your desired LLM, and then restart your Python application.*
 
 ## Key Features
 
-* **Zero API Key Requirement:** `agy-connect` securely piggybacks off your local Antigravity CLI's existing credentials and setup.
-* **Native Context Memory:** Takes full advantage of `agy`'s native memory management by isolating chats into physical directory structures. Conversations maintain perfect memory across multiple requests!
-* **Real-time Streaming:** Fetch tokens as they arrive instantly using the async generators (`chat.stream()`).
-* **Session Management:** Built-in `SessionManager` utilizes LRU (Least Recently Used) caching with configurable auto-expiration to manage hundreds of simultaneous chats efficiently.
-* **Robust Process Management:** Handles batch processing intelligently. If `agy` hangs or crashes, the SDK detects it and optionally performs auto-recovery.
-* **Dual API Support:** Complete support for both highly scalable `asyncio` applications (via `SessionManager`) and simple synchronous scripts (via `Chat`).
-* **Health Metrics:** Check CPU/process uptime and state machine transitions in real time (`chat.health()`).
+* **Zero API Key Requirement:** Use premium models natively without API costs.
+* **Native Context Memory:** Preserves perfect conversation memory across requests.
+* **Real-time Streaming:** Fetch tokens instantly using async generators (`chat.stream()`).
+* **Session Management:** Built-in `SessionManager` utilizes LRU caching to manage hundreds of simultaneous chats efficiently.
+* **Robust Process Management:** Handles batch processing intelligently with auto-recovery.
+* **Dual API Support:** Complete support for both highly scalable `asyncio` applications and simple synchronous scripts.
+
+## What can you build?
+- ✓ Terminal chatbots
+- ✓ FastAPI / Flask backends
+- ✓ Discord / Slack bots
+- ✓ Desktop assistants
+- ✓ Automation agents
+- ✓ CLI applications
 
 ---
 
@@ -30,7 +51,22 @@ pip install agy-connect
 ```
 
 **Prerequisites:** You must have the [Antigravity CLI](https://antigravity.google/product/antigravity-cli) installed on your system.
-*If `agy` is missing from your system PATH, the library will gracefully raise an `AgyNotInstalled` exception guiding the user on how to install it.*
+
+### Verify Installation
+
+After installation, you can easily verify that everything works:
+
+```bash
+python -c "from agy_connect import Chat; print(Chat().status())"
+```
+If `agy` is installed and authenticated correctly, you should see a status such as `READY`.
+
+### Supported Platforms
+- Windows
+- Linux
+- macOS
+
+*Requires Python 3.9+*
 
 ---
 
@@ -99,6 +135,17 @@ async def run_server():
 asyncio.run(run_server())
 ```
 
+### 4. Handling Exceptions
+```python
+from agy_connect import Chat
+from agy_connect.exceptions import AgyNotInstalled
+
+try:
+    chat = Chat()
+except AgyNotInstalled:
+    print("Please install Antigravity CLI.")
+```
+
 ---
 
 ## API Reference
@@ -125,7 +172,7 @@ The `Chat` and `Session` objects expose the following methods:
 `agy-connect` uses an event-driven, state-machine architecture under the hood to ensure predictable process execution.
 
 ### The Problem it Solves
-The Antigravity CLI intentionally disables its interactive REPL mode when standard streams are piped (waiting for an `EOF` before processing anything). This makes a long-running persistent subprocess impossible.
+The current implementation is designed around Antigravity CLI's non-interactive execution behavior, which makes long-lived stdin/stdout sessions impractical. As a result, agy-connect uses isolated batch-mode sessions while preserving conversation context in Python.
 
 ### The Solution (Batch-Mode Strategy)
 `agy-connect` embraces batch-mode processing using isolated workspaces.
