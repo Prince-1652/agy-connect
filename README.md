@@ -23,11 +23,13 @@ It completely abstracts away all subprocess management, inter-process communicat
 
 ## 📦 Installation
 
+To install `agy-connect`, use `pip`:
+
 ```bash
 pip install agy-connect
 ```
 
-**Prerequisites:** You must have the [Antigravity CLI](https://github.com/google/antigravity) installed on your system.
+**Prerequisites:** You must have the [Antigravity CLI](https://antigravity.google/product/antigravity-cli) installed on your system.
 *If `agy` is missing from your system PATH, the library will gracefully raise an `AgyNotInstalled` exception guiding the user on how to install it.*
 
 ---
