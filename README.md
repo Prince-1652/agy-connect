@@ -101,6 +101,25 @@ asyncio.run(run_server())
 
 ---
 
+## API Reference
+
+The `Chat` and `Session` objects expose the following methods:
+
+| Method | Description |
+|--------|-------------|
+| `send(prompt: str)` | Sends a prompt synchronously and returns the complete string response. |
+| `stream(prompt: str)` | Generator that yields response tokens in real-time as they arrive. |
+| `save(filename: str)` | Saves the entire conversation history to a JSON file on disk. |
+| `load(filename: str)` | Reloads a previous conversation history from a JSON file. |
+| `reset()` | Wipes the current session's memory/history completely. |
+| `history()` | Returns the raw list of messages (dictionaries) in the current session. |
+| `health()` | Returns real-time health metrics (PID, uptime, state, last errors). |
+| `status()` | Returns the current string state of the adapter (e.g. `READY`, `BUSY`). |
+| `restart()` | Forces a reboot of the underlying state machine and adapter. |
+| `close()` / `shutdown()` | Gracefully cleans up all resources and background tasks. |
+
+---
+
 ## Architecture & Design
 
 `agy-connect` uses an event-driven, state-machine architecture under the hood to ensure predictable process execution.
