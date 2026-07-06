@@ -1,5 +1,7 @@
 <div align="center">
 
+![agy-connect banner](assets/agy-connect.png)
+
 # agy-connect
 
 ![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)
