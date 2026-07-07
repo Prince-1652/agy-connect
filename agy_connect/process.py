@@ -21,10 +21,6 @@ class ProcessManager:
         self._process: Optional[asyncio.subprocess.Process] = None
         self._executable = find_executable(config.executable_path)
         
-        # Create unique directory for this session so agy maintains context naturally
-        self.session_dir = os.path.join(self.config.working_directory, "sessions", self.session_id)
-        os.makedirs(self.session_dir, exist_ok=True)
-        
     @property
     def is_running(self) -> bool:
         return self._process is not None and self._process.returncode is None
@@ -54,7 +50,7 @@ class ProcessManager:
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                cwd=self.session_dir,
+                cwd=self.config.working_directory,
                 env={**os.environ, "PYTHONUNBUFFERED": "1"}
             )
             self._process = process
