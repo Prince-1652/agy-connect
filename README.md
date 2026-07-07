@@ -164,7 +164,7 @@ The `Chat` and `Session` objects expose the following methods:
 |--------|-------------|
 | `send(prompt: str)` | Sends a prompt synchronously and returns the complete string response. |
 | `stream(prompt: str)` | Generator that yields response tokens in real-time as they arrive. |
-| `save(filename: str)` | Saves the entire conversation history to a JSON file on disk. |
+| `save(filename: Optional[str])` | Saves history to JSON. Defaults to `sessions/<session_id>.json` and auto-creates the directory. |
 | `load(filename: str)` | Reloads a previous conversation history from a JSON file. |
 | `reset()` | Wipes the current session's memory/history completely. |
 | `history()` | Returns the raw list of messages (dictionaries) in the current session. |
@@ -190,10 +190,9 @@ The current implementation is designed around Antigravity CLI's non-interactive 
 
 ### The Solution (Batch-Mode Strategy)
 `agy-connect` embraces batch-mode processing using isolated workspaces.
-1. When a new session is requested, a unique session folder is dynamically created (`/sessions/<session_id>`).
-2. When a prompt is sent, `agy-connect` explicitly prepends the entire Python-side tracked history to ensure context isn't lost.
-3. It spawns a fresh, ephemeral `agy` process in that directory, immediately flushes `stdin`, and sends an `EOF`.
-4. It attaches an async reader to `stdout` to yield the tokens back to your application as `agy` generates them, then terminates the ephemeral process cleanly.
+1. When a prompt is sent, `agy-connect` explicitly prepends the entire Python-side tracked history to ensure context isn't lost.
+2. It spawns a fresh, ephemeral `agy` process, immediately flushes `stdin`, and sends an `EOF`.
+3. It attaches an async reader to `stdout` to yield the tokens back to your application as `agy` generates them, then terminates the ephemeral process cleanly.
 
 ### State Machine
 Every adapter tracks its state strictly using `agy_connect.constants`:
