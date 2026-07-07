@@ -77,8 +77,14 @@ class Chat:
         """Retrieve the conversation history."""
         return self._session.history.get_all()
         
-    def save(self, filepath: str) -> None:
-        """Save history to a file."""
+    def save(self, filepath: Optional[str] = None) -> None:
+        """Save history to a file. Defaults to sessions/<session_id>.json if no path provided."""
+        if filepath is None:
+            filepath = os.path.join(self.config.working_directory, "sessions", f"{self.session_id}.json")
+            
+        # Ensure parent directories exist
+        import os
+        os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
         self._session.history.save(filepath)
         
     def load(self, filepath: str) -> None:
