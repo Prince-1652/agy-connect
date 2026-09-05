@@ -23,8 +23,9 @@ Instead of managing subprocesses, stdin/stdout, session recovery, streaming, and
 ## Supported Models
 
 Since `agy-connect` securely piggybacks off your local CLI, it supports all native Antigravity models:
+- Gemini 3.8 Flash (Low, Medium, High)
+- Gemini 3.7 Flash (Low, Medium, High)
 - Gemini 3.6 Flash (Low, Medium, High)
-- Gemini 3.5 Flash (Low, Medium, High)
 - Gemini 3.1 Pro (Low, High)
 - Claude Sonnet 4.6 (Thinking)
 - Claude Opus 4.6 (Thinking)
