@@ -5,7 +5,6 @@ import time
 from typing import Dict, List, Optional
 from .config import Config
 from .session import Session
-from .exceptions import SessionNotFound, ConfigurationError
 from .logger import get_logger
 
 logger = get_logger()

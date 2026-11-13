@@ -1,5 +1,4 @@
 import pytest
-import asyncio
 from unittest.mock import patch, AsyncMock
 from agy_connect import SessionManager, Config
 
@@ -11,13 +10,13 @@ async def test_session_manager(mock_init, mock_find_executable):
     config = Config(max_sessions=2, executable_path="/usr/bin/agy")
     manager = SessionManager(config)
     
-    sess1 = await manager.get("session_1")
-    sess2 = await manager.get("session_2")
+    await manager.get("session_1")
+    await manager.get("session_2")
     
     assert len(manager.list_sessions()) == 2
     
     # Getting a third session should evict the oldest (session_1)
-    sess3 = await manager.get("session_3")
+    await manager.get("session_3")
     
     assert len(manager.list_sessions()) == 2
     assert "session_3" in manager.list_sessions()

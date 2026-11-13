@@ -1,11 +1,12 @@
 """Session wrapper for agy-connect."""
 
 import asyncio
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional, Callable, Any
 from .config import Config
 from .adapter import AntigravityAdapter
 from .history import HistoryManager
 from .health import HealthMonitor
+from .types import StreamEvent
 
 class Session:
     """
@@ -30,31 +31,51 @@ class Session:
         """Clean up resources when session ends."""
         await self.adapter.stop()
         self.health.record_stop()
+
+    async def switch_model(self, model: Optional[str], effort: Optional[str] = None) -> None:
+        """Switch model on active session while preserving conversation context."""
+        async with self._lock:
+            self.config.model = model
+            self.config.effort = effort
+            self.adapter.process.config.model = model
+            self.adapter.process.config.effort = effort
+            await self.adapter.restart(conversation_id=self.adapter.conversation_id)
         
-    async def send(self, prompt: str) -> str:
+    async def send(
+        self,
+        prompt: str,
+        on_status: Optional[Callable[[str], Any]] = None,
+        on_event: Optional[Callable[[StreamEvent], Any]] = None,
+    ) -> str:
         """Send a prompt to this session sequentially."""
         async with self._lock:
             self.history.add("user", prompt)
-            
-            # agy is stateless in batch mode, we MUST prepend history manually
-            full_prompt = "\\n".join([f"{msg['role']}: {msg['content']}" for msg in self.history.get_all()])
-            
-            response = await self.adapter.send(full_prompt)
-            
+            response = await self.adapter.send(prompt, on_status=on_status, on_event=on_event)
             self.history.add("assistant", response)
             return response
             
-    async def stream(self, prompt: str) -> AsyncGenerator[str, None]:
+    async def stream(
+        self,
+        prompt: str,
+        on_status: Optional[Callable[[str], Any]] = None,
+        on_event: Optional[Callable[[StreamEvent], Any]] = None,
+    ) -> AsyncGenerator[str, None]:
         """Stream a prompt's response sequentially."""
         async with self._lock:
             self.history.add("user", prompt)
-            
-            # agy is stateless in batch mode, we MUST prepend history manually
-            full_prompt = "\\n".join([f"{msg['role']}: {msg['content']}" for msg in self.history.get_all()])
-            
             full_response = ""
-            async for chunk in self.adapter.stream(full_prompt):
+            async for chunk in self.adapter.stream(prompt, on_status=on_status, on_event=on_event):
                 full_response += chunk
                 yield chunk
-                
+            self.history.add("assistant", full_response)
+
+    async def stream_events(self, prompt: str) -> AsyncGenerator[StreamEvent, None]:
+        """Stream response events sequentially."""
+        async with self._lock:
+            self.history.add("user", prompt)
+            full_response = ""
+            async for event in self.adapter.stream_events(prompt):
+                if event.text_delta:
+                    full_response += event.text_delta
+                yield event
             self.history.add("assistant", full_response)

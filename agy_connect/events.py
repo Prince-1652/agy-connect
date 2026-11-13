@@ -1,6 +1,5 @@
 """Event system for agy-connect."""
 
-import asyncio
 from typing import Callable, Coroutine, Any, Dict, List
 from .logger import get_logger
 

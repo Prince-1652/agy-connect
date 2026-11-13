@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 import os
 import logging
-from .constants import DEFAULT_TIMEOUT, DEFAULT_MAX_SESSIONS, DEFAULT_CHUNK_SIZE, AGY_EXECUTABLE_NAME
+from .constants import DEFAULT_TIMEOUT, DEFAULT_MAX_SESSIONS, DEFAULT_CHUNK_SIZE
 from .exceptions import ConfigurationError
 
 @dataclass
@@ -35,6 +35,23 @@ class Config:
     # Auto-recovery after crash
     auto_recover: bool = True
     
+    # Model alias/name (e.g. "gemini-3.8-flash-low", "gemini-3.8-flash-medium").
+    # If None, inherits user settings.json.
+    model: Optional[str] = "gemini-3.8-flash-low"
+
+    # Reasoning effort ("low", "medium", "high", "xhigh", "max").
+    # If None, inherits model default or user settings.json.
+    effort: Optional[str] = None
+
+    # Auto-approve tool permissions without blocking
+    dangerously_skip_permissions: bool = True
+
+    # Use worker pool for pre-warmed processes
+    use_pool: bool = True
+
+    # Automatically trigger pre-warming in background
+    auto_warmup: bool = False
+
     # Working directory for the agy process
     working_directory: str = field(default_factory=os.getcwd)
 

@@ -1,9 +1,35 @@
 """Utility functions for agy-connect."""
 
 import shutil
-from typing import Optional
+import threading
+import asyncio
+from typing import Optional, Any
 from .constants import AGY_EXECUTABLE_NAME
 from .exceptions import AgyNotInstalled
+
+_loop_thread: Optional[threading.Thread] = None
+_loop: Optional[asyncio.AbstractEventLoop] = None
+_loop_lock = threading.Lock()
+
+def _start_background_loop(loop: asyncio.AbstractEventLoop) -> None:
+    asyncio.set_event_loop(loop)
+    loop.run_forever()
+
+def get_background_loop() -> asyncio.AbstractEventLoop:
+    """Get or start the shared background event loop for synchronous callers."""
+    global _loop, _loop_thread
+    with _loop_lock:
+        if _loop is None or _loop.is_closed():
+            _loop = asyncio.new_event_loop()
+            _loop_thread = threading.Thread(target=_start_background_loop, args=(_loop,), daemon=True)
+            _loop_thread.start()
+        return _loop
+
+def run_coroutine(coro: Any) -> Any:
+    """Run a coroutine thread-safely in the background loop."""
+    loop = get_background_loop()
+    future = asyncio.run_coroutine_threadsafe(coro, loop)
+    return future.result()
 
 def find_executable(configured_path: Optional[str] = None) -> str:
     """

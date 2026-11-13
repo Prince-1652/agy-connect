@@ -1,8 +1,7 @@
 """Completion detection for agy responses."""
 
-import re
 import json
-from typing import Optional, Tuple
+from typing import Tuple
 from .constants import DEFAULT_PROMPT_MARKER
 from .logger import get_logger
 
@@ -48,7 +47,7 @@ class CompletionDetector:
         """
         try:
             # We attempt to parse. If it parses cleanly, it's complete.
-            parsed = json.loads(buffer.strip())
+            json.loads(buffer.strip())
             return True, buffer.strip()
         except json.JSONDecodeError:
             # Not complete JSON yet (or completely invalid)

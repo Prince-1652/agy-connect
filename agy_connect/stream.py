@@ -84,7 +84,8 @@ class SafeStreamer:
         if marker_len == 0:
             while True:
                 data = await stdout.read(self.chunk_size)
-                if not data: break
+                if not data:
+                    break
                 yield data.decode(errors='replace')
             return
             

@@ -1,6 +1,5 @@
 """Constants for agy-connect."""
 
-import os
 import sys
 
 DEFAULT_TIMEOUT = 30.0

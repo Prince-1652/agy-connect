@@ -1,36 +1,15 @@
 """Synchronous client interface for agy-connect."""
 
+import os
 import asyncio
-import threading
 import uuid
-from typing import Iterator, Optional, Dict, Any, List
+from typing import Iterator, Optional, Dict, Any, List, Callable, Union
 from .config import Config
 from .session import Session
-from .manager import SessionManager
-
-# A global thread to run the asyncio loop for synchronous API
-_loop_thread: Optional[threading.Thread] = None
-_loop: Optional[asyncio.AbstractEventLoop] = None
-_loop_lock = threading.Lock()
-
-def _start_background_loop(loop: asyncio.AbstractEventLoop) -> None:
-    asyncio.set_event_loop(loop)
-    loop.run_forever()
-
-def _get_loop() -> asyncio.AbstractEventLoop:
-    global _loop, _loop_thread
-    with _loop_lock:
-        if _loop is None:
-            _loop = asyncio.new_event_loop()
-            _loop_thread = threading.Thread(target=_start_background_loop, args=(_loop,), daemon=True)
-            _loop_thread.start()
-        return _loop
-        
-def _run_coroutine(coro: Any) -> Any:
-    """Run a coroutine thread-safely in the background loop."""
-    loop = _get_loop()
-    future = asyncio.run_coroutine_threadsafe(coro, loop)
-    return future.result()
+from .types import StreamEvent
+from .render import CliLiveRenderer
+from .process import list_available_models
+from .utils import get_background_loop as _get_loop, run_coroutine as _run_coroutine
 
 class Chat:
     """
@@ -43,35 +22,88 @@ class Chat:
         self._session = Session(self.session_id, self.config)
         _run_coroutine(self._session.initialize())
         
-    def send(self, prompt: str) -> str:
-        """Send a prompt and wait for the full response."""
-        return _run_coroutine(self._session.send(prompt))
+    def send(
+        self,
+        prompt: str,
+        on_status: Optional[Callable[[str], Any]] = None,
+        on_event: Optional[Callable[[StreamEvent], Any]] = None,
+    ) -> str:
+        """Send a prompt and wait for the full response, optionally receiving status updates."""
+        return _run_coroutine(self._session.send(prompt, on_status=on_status, on_event=on_event))
         
-    def stream(self, prompt: str) -> Iterator[str]:
-        """Stream the response chunks synchronously."""
+    def stream(
+        self,
+        prompt: str,
+        on_status: Optional[Callable[[str], Any]] = None,
+        on_event: Optional[Callable[[StreamEvent], Any]] = None,
+    ) -> Iterator[str]:
+        """Stream the response chunks synchronously with optional real-time status feedback."""
         loop = _get_loop()
         
         # We use a thread-safe queue to pass chunks from async generator to sync iterator
-        q: "asyncio.Queue[Optional[str]]" = asyncio.Queue()
+        q: "asyncio.Queue[Union[Optional[str], Exception]]" = asyncio.Queue()
         
         async def _consume_stream() -> None:
             try:
-                async for chunk in self._session.stream(prompt):
+                async for chunk in self._session.stream(prompt, on_status=on_status, on_event=on_event):
                     await q.put(chunk)
                 await q.put(None) # EOF
             except Exception as e:
-                # We could put the exception in the queue, but for simplicity
-                await q.put(None)
+                await q.put(e)
                 
         asyncio.run_coroutine_threadsafe(_consume_stream(), loop)
         
         while True:
-            # We must wait for items in the queue thread-safely
             future = asyncio.run_coroutine_threadsafe(q.get(), loop)
-            chunk = future.result()
-            if chunk is None:
+            item = future.result()
+            if item is None:
                 break
-            yield chunk
+            if isinstance(item, Exception):
+                raise item
+            yield item
+
+    def stream_cli(
+        self,
+        prompt: str,
+        prefix: str = "Agy> ",
+        show_thinking: bool = True,
+    ) -> str:
+        """
+        Stream a prompt with live Antigravity CLI states (thinking, tools, streaming tokens)
+        rendered directly to stdout in real time. Returns the complete response text.
+        """
+        renderer = CliLiveRenderer(prefix=prefix, show_thinking=show_thinking)
+        renderer.start()
+        try:
+            for event in self.stream_events(prompt):
+                renderer.handle_event(event)
+        finally:
+            renderer.finish()
+        return renderer.get_text()
+
+    def stream_events(self, prompt: str) -> Iterator[StreamEvent]:
+        """Stream response events (thoughts, tool calls, text deltas) synchronously."""
+        loop = _get_loop()
+        q: "asyncio.Queue[Union[Optional[StreamEvent], Exception]]" = asyncio.Queue()
+        
+        async def _consume_events() -> None:
+            try:
+                async for event in self._session.stream_events(prompt):
+                    await q.put(event)
+                await q.put(None)
+            except Exception as e:
+                await q.put(e)
+                
+        asyncio.run_coroutine_threadsafe(_consume_events(), loop)
+        
+        while True:
+            future = asyncio.run_coroutine_threadsafe(q.get(), loop)
+            event = future.result()
+            if event is None:
+                break
+            if isinstance(event, Exception):
+                raise event
+            yield event
             
     def history(self) -> List[Dict[str, str]]:
         """Retrieve the conversation history."""
@@ -83,7 +115,6 @@ class Chat:
             filepath = os.path.join(self.config.working_directory, "sessions", f"{self.session_id}.json")
             
         # Ensure parent directories exist
-        import os
         os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
         self._session.history.save(filepath)
         
@@ -98,6 +129,17 @@ class Chat:
     def restart(self) -> None:
         """Restart the underlying process."""
         _run_coroutine(self._session.adapter.restart())
+
+    def switch_model(self, model: Optional[str], effort: Optional[str] = None) -> None:
+        """
+        Dynamically switch the active AI model while seamlessly preserving conversation context.
+        Set model=None to inherit the user's currently selected CLI model.
+        """
+        _run_coroutine(self._session.switch_model(model, effort))
+
+    def models(self) -> List[Dict[str, str]]:
+        """List all available models discovered by Antigravity CLI."""
+        return list_available_models(self.config.executable_path)
         
     def interrupt(self) -> None:
         """Interrupt the current generation (restarts the process)."""
@@ -126,3 +168,9 @@ class Chat:
     def close(self) -> None:
         """Close the session and terminate the process."""
         _run_coroutine(self._session.cleanup())
+
+    def __enter__(self) -> "Chat":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self.close()

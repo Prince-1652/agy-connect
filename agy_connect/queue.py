@@ -1,8 +1,7 @@
 """Async request queue for agy-connect."""
 
 import asyncio
-from typing import Any, Callable, Coroutine, Dict, Tuple
-from .exceptions import QueueError
+from typing import Any, Callable, Coroutine, Tuple
 from .logger import get_logger
 
 logger = get_logger()

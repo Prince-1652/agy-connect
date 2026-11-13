@@ -1,6 +1,4 @@
 import pytest
-import os
-import json
 from agy_connect.history import HistoryManager
 from agy_connect.exceptions import HistoryError
 

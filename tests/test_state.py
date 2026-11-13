@@ -1,5 +1,4 @@
 import pytest
-import asyncio
 from agy_connect.state import StateMachine
 from agy_connect.constants import STATE_STOPPED, STATE_STARTING, STATE_READY, STATE_BUSY
 from agy_connect.exceptions import InvalidState

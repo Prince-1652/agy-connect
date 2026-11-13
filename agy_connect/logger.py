@@ -1,7 +1,6 @@
 """Structured logging for agy-connect."""
 
 import logging
-from typing import Optional
 from .config import Config
 
 _logger = logging.getLogger("agy_connect")

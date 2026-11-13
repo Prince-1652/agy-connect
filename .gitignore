@@ -32,3 +32,18 @@ htmlcov/
 env.bak/
 venv.bak/
 sessions/
+
+.cortex/
+graphify-out/
+*.log
+scratch/
+.tmp*
+
+
+# CORTEX & local tooling
+.cortex/
+graphify-out/
+*.log
+scratch/
+.tmp*
+

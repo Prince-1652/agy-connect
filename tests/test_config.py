@@ -1,7 +1,6 @@
 import pytest
 from agy_connect.config import Config
 from agy_connect.exceptions import ConfigurationError
-import os
 
 def test_valid_config():
     config = Config(idle_timeout=10, max_sessions=5, stream_chunk_size=1024)
