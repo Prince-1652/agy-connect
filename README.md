@@ -285,3 +285,15 @@ chat = Chat(config)
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+---
+
+## Disclaimer & Legal Notice
+
+> [!IMPORTANT]
+> **Independent Open-Source Tooling**: `agy-connect` is an independent client wrapper and inter-process communication (IPC) library. It does **not** host, operate, distribute, or license any artificial intelligence models, neural weights, compute infrastructure, or proxy services.
+
+- **Local IPC Bridge Only**: `agy-connect` operates strictly as a local automation interface communicating with the user's locally installed, locally authenticated Google Antigravity CLI executable via standard input/output streams.
+- **No Model Ownership or Reselling**: All model capabilities, tokens, and generation outputs originate entirely from the user's personal Antigravity CLI installation and account. `agy-connect` does not bypass authentication, circumvent billing, or provide unauthorized model access.
+- **Terms & Compliance**: Use of this library requires a valid, pre-existing installation of Google Antigravity CLI. Users remain independently responsible for complying with Google's Terms of Service, Acceptable Use Policies, and the policies of respective underlying model providers (Google DeepMind, Anthropic, etc.).
+- **Trademarks**: "Google", "Antigravity", "Gemini", "Claude", and related brand marks belong to their respective copyright and trademark holders. `agy-connect` is an independent community project and is not affiliated with, endorsed by, or sponsored by Google or Anthropic.
