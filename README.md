@@ -53,28 +53,11 @@ Discover models programmatically at any time via `chat.models()` or `list_models
 
 ## Architecture & Core Mechanics
 
-```
-┌────────────────────────────────────────────────────────┐
-│                   Python Application                   │
-│         (Chat / SessionManager / CliLiveRenderer)      │
-└───────────────────────────┬────────────────────────────┘
-                            │
-               WorkerPool   │  (Instant Handover < 20ms)
-       ┌────────────────────┴────────────────────┐
-       ▼                                         ▼
-┌──────────────┐                          ┌──────────────┐
-│ Warm Worker  │                          │ Warm Worker  │
-│ (pre-booted) │                          │ (pre-booted) │
-└──────┬───────┘                          └──────────────┘
-       │
-       │ Persistent NDJSON (stdin / stdout)
-       │ --input-format stream-json --output-format stream-json
-       ▼
-┌────────────────────────────────────────────────────────┐
-│              Google Antigravity CLI (agy)              │
-│       [Toolbox Engine / Language Server / Auth]        │
-└────────────────────────────────────────────────────────┘
-```
+<div align="center">
+
+![agy-connect Architecture](assets/architecture.png)
+
+</div>
 
 ### 1. Persistent Keep-Alive Protocol
 Rather than spawning isolated CLI processes per turn, `agy-connect` maintains persistent subprocesses running `--input-format stream-json --output-format stream-json`. Prompts and responses stream continuously over NDJSON pipes, eliminating repeated CLI bootstrap overhead.
