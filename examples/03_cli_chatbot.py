@@ -4,6 +4,8 @@ Features:
 - Instant warm worker initialization (<0.02s) via WorkerPool.
 - Real-time token-by-token streaming.
 - Authentic Antigravity CLI progress feedback (tools, commands, thinking).
+- Mid-session limit failover with automated fallback models.
+- Interactive question & permission handling (ask_question callbacks).
 - Dynamic model switching with preserved context (/models, /model <name>).
 - Slash commands: /help, /models, /model, /status, /clear.
 """
@@ -28,6 +30,21 @@ def print_help() -> None:
     print("  /help           - Show this help message")
     print("  exit / quit     - Close session and exit\n")
 
+def handle_cli_question(q: dict) -> dict:
+    """Prompt user interactively in terminal when agent asks a question."""
+    question_text = q.get("question") or q.get("prompt") or str(q)
+    options = q.get("options") or []
+    print(f"\n[Agent Question]: {question_text}")
+    if options:
+        for idx, opt in enumerate(options, 1):
+            print(f"  [{idx}] {opt}")
+        choice = input("Select option or type answer: ").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(options):
+            return {"selected": options[int(choice) - 1]}
+        return {"response": choice}
+    ans = input("Your answer: ").strip()
+    return {"response": ans}
+
 def main() -> None:
     print_banner()
 
@@ -35,8 +52,12 @@ def main() -> None:
     t0 = time.time()
     warmup(wait=False)
 
-    # Initialize chat using pre-warmed pool worker
-    config = Config(model="gemini-3.8-flash-low", use_pool=True)
+    # Initialize chat using pre-warmed pool worker with quota fallback chain
+    config = Config(
+        model="gemini-3.8-flash-high",
+        fallback_models=["gemini-3.8-flash-medium", "gemini-3.8-flash-low"],
+        use_pool=True,
+    )
     with Chat(config) as chat:
         init_latency = (time.time() - t0) * 1000
         active_model = chat.config.model or "CLI default (settings.json)"
@@ -65,8 +86,14 @@ def main() -> None:
                     print()
                     continue
 
-                if user_input.startswith("/model "):
-                    target = user_input.split(maxsplit=1)[1].strip()
+                if user_input == "/model" or user_input.startswith("/model "):
+                    parts = user_input.split(maxsplit=1)
+                    if len(parts) == 1:
+                        print(f"\nActive model: {chat.config.model or 'CLI default (settings.json)'}")
+                        print("Usage: /model <name> | /model default | /models\n")
+                        continue
+
+                    target = parts[1].strip()
                     if target.lower() in ("default", "none"):
                         target = None
 
@@ -84,7 +111,8 @@ def main() -> None:
                     print(f"Status     : {chat.status()}")
                     print(f"PID        : {h.get('pid')}")
                     print(f"Process    : {'Alive' if h.get('process_alive') else 'Stopped'}")
-                    print(f"Uptime     : {h.get('uptime', 0):.1f}s\n")
+                    print(f"Uptime     : {h.get('uptime', 0):.1f}s")
+                    print(f"Fallbacks  : {chat.config.fallback_models}\n")
                     continue
 
                 if user_input == "/clear":
@@ -92,8 +120,13 @@ def main() -> None:
                     print("\nConversation history cleared.\n")
                     continue
 
-                # Stream response tokens live with native CLI states (thinking, tool execution, tokens)
-                chat.stream_cli(user_input, prefix="Agy> ")
+                # Intercept any unrecognized slash commands so they don't break stream-json
+                if user_input.startswith("/"):
+                    print(f"\nUnknown slash command: '{user_input}'. Type '/help' for available commands.\n")
+                    continue
+
+                # Stream response tokens live with native CLI states and question callbacks
+                chat.stream_cli(user_input, prefix="Agy> ", on_question=handle_cli_question)
 
             except (KeyboardInterrupt, EOFError):
                 print("\n\nSession interrupted. Exiting...")

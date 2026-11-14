@@ -49,28 +49,21 @@ class StreamHandler:
             
             # Check if this new buffer hits completion
             is_complete, cleaned = self.detector.detect(buffer)
-            
+
             if is_complete:
-                # If we detect completion, yield exactly up to the marker
-                # Since we don't know where the marker was relative to the chunk, 
-                # we just yield what we haven't yielded yet.
-                # Actually, to stream properly, we should yield chunks immediately.
-                pass 
-                
-            # Yielding tokens incrementally:
-            # If it's not JSON mode, we can just yield the chunk immediately
-            # But we must be careful not to yield the prompt marker itself.
-            # To handle this perfectly, we buffer slightly or check ends.
-            
-            if self.detector.marker in buffer:
-                # We reached completion.
-                # Yield only the part before the marker that hasn't been yielded yet.
-                # Wait, if we've been yielding chunks, we shouldn't buffer everything.
-                pass
-                
-        # To avoid overcomplicating the generator logic here without fully buffering:
-        # 1. We keep a small sliding window buffer just large enough to catch the marker.
-        # 2. As data comes in, we yield everything that is "safe" (before the sliding window).
+                # Yield content before the marker and stop
+                if cleaned:
+                    yield cleaned
+                return
+
+            # Sliding-window approach: keep marker_len chars in reserve so we never
+            # accidentally yield part of the completion marker.
+            marker_len = len(self.detector.marker)
+            if marker_len and len(buffer) > marker_len:
+                safe = buffer[:-marker_len]
+                buffer = buffer[-marker_len:]
+                if safe:
+                    yield safe
         
 class SafeStreamer:
     """A streamer that yields tokens incrementally without buffering everything, while safely avoiding the marker."""

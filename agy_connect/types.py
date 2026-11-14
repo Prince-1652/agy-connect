@@ -27,6 +27,8 @@ class StreamEvent:
     duration_seconds: Optional[float] = None
     usage: Optional[Dict[str, Any]] = None
     raw: Dict[str, Any] = field(default_factory=dict)
+    interaction_id: Optional[str] = None
+    question_data: Optional[Dict[str, Any]] = None
 
     @property
     def is_tool(self) -> bool:
@@ -36,12 +38,23 @@ class StreamEvent:
     @property
     def is_thinking(self) -> bool:
         """True if this event represents reasoning / thinking."""
-        return self.step_type in ("thought", "thinking") or bool(self.thinking_delta)
+        if self.step_type in ("thought", "thinking") or bool(self.thinking_delta):
+            return True
+        if self.step_type == "agent_response" and not self.text_delta:
+            usage = self.usage or {}
+            if usage.get("thinking_tokens", 0) > 0:
+                return True
+        return False
 
     @property
     def is_text(self) -> bool:
         """True if this event contains assistant response text."""
         return bool(self.text_delta)
+
+    @property
+    def is_question(self) -> bool:
+        """True if this event represents an interactive question / prompt."""
+        return self.event in ("interaction", "ask_question", "question") or bool(self.question_data)
 
     def format_cli(self, color: bool = True) -> Optional[str]:
         """
@@ -50,7 +63,14 @@ class StreamEvent:
         dim = "\033[90m" if color else ""
         cyan = "\033[36m" if color else ""
         green = "\033[32m" if color else ""
+        yellow = "\033[33m" if color else ""
         reset = "\033[0m" if color else ""
+
+        if self.is_question:
+            q_text = ""
+            if self.question_data:
+                q_text = self.question_data.get("question") or str(self.question_data)
+            return f"{yellow}? Question:{reset} {q_text}"
 
         if self.is_tool:
             tool = self.tool_name or "tool"
@@ -78,6 +98,11 @@ class StreamEvent:
                 target = f'"{params["prompt"]}"'
             elif "url" in params:
                 target = str(params["url"])
+
+            if target:
+                target = " ".join(target.split())
+                if len(target) > 80:
+                    target = target[:77] + "..."
 
             # Match exact CLI verbs
             if tool in ("run_command", "bash", "exec", "shell"):

@@ -26,27 +26,27 @@ async def check_authentication(executable_path: Optional[str] = None) -> bool:
     # If the tool just exits with a known auth error code, we catch it.
     
     try:
-        # Mocking the command structure since agy internal details are abstracted.
-        # This will need to be adapted based on real agy behavior.
+        # Run `agy models` as an authentic, non-destructive auth check.
+        # If not authenticated, agy models exits non-zero with auth error.
         process = await asyncio.create_subprocess_exec(
-            exe, "--help", # Using help as a safe fallback command to see if it even runs
+            exe, "models",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
         stdout, stderr = await process.communicate()
-        
-        output = stdout.decode() + stderr.decode()
-        
-        # If output explicitly mentions "login" or "authentication required"
-        if "authenticate" in output.lower() or "login" in output.lower():
-             raise AuthenticationRequired("Antigravity CLI is not authenticated. Please login first.")
-             
+
+        if process.returncode != 0:
+            output = (stdout.decode() + stderr.decode()).strip()
+            raise AuthenticationRequired(
+                f"Antigravity CLI is not authenticated. Run `agy` in your terminal to sign in. ({output})"
+            )
+
         return True
     except FileNotFoundError:
         raise AgyNotInstalled("Executable not found during auth check.")
+    except AuthenticationRequired:
+        raise
     except Exception as e:
-        if isinstance(e, AuthenticationRequired):
-            raise
         logger.warning(f"Could not verify authentication status: {e}")
-        # Proceed cautiously
+        # Proceed cautiously — the auth sub-command may not exist in all versions
         return True

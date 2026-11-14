@@ -110,8 +110,8 @@ class WorkerPool:
             async with self.lock:
                 self._replenishing[key] = max(0, self._replenishing.get(key, 1) - 1)
 
-    def _schedule_replenishment(self, config: Config) -> None:
-        """Schedule background replenishment if pool drops below target size."""
+    def _schedule_replenishment_locked(self, config: Config) -> None:
+        """Schedule background replenishment. MUST be called while self.lock is held."""
         if not self.auto_replenish or self.target_size <= 0:
             return
         key = _config_key(config)
@@ -137,7 +137,7 @@ class WorkerPool:
                     worker = self._pool[key].pop(0)
                     if worker.is_running:
                         logger.debug(f"Acquired pre-warmed worker {worker.pid} from pool")
-                        self._schedule_replenishment(cfg)
+                        self._schedule_replenishment_locked(cfg)
                         return worker
                     else:
                         logger.debug("Discarding dead worker from pool")
@@ -155,7 +155,8 @@ class WorkerPool:
 
         logger.debug("No warm worker in pool; spawning on demand")
         worker = await self._create_warm_worker(cfg)
-        self._schedule_replenishment(cfg)
+        async with self.lock:
+            self._schedule_replenishment_locked(cfg)
         return worker
 
     async def release(self, worker: ProcessManager) -> None:
@@ -166,7 +167,8 @@ class WorkerPool:
             logger.warning(f"Error terminating released worker: {e}")
 
         if worker.config:
-            self._schedule_replenishment(worker.config)
+            async with self.lock:
+                self._schedule_replenishment_locked(worker.config)
 
     async def warmup(self, count: int = 1, config: Optional[Config] = None) -> None:
         """Warm up count workers for config in the background."""
@@ -198,7 +200,9 @@ class WorkerPool:
         if self.warm_count(cfg) >= count:
             return
 
-        asyncio.create_task(self.warmup(count=count, config=cfg))
+        _warmup_task = asyncio.create_task(self.warmup(count=count, config=cfg))
+        self._background_tasks.add(_warmup_task)
+        _warmup_task.add_done_callback(self._background_tasks.discard)
         start_time = time.monotonic()
         while time.monotonic() - start_time < timeout:
             if self.warm_count(cfg) >= count:

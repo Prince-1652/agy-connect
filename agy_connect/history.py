@@ -42,6 +42,11 @@ class HistoryManager:
                 data = json.load(f)
                 if not isinstance(data, list):
                     raise ValueError("History file must contain a JSON array.")
+                for i, item in enumerate(data):
+                    if not isinstance(item, dict) or "role" not in item or "content" not in item:
+                        raise ValueError(
+                            f"History item at index {i} must be a dict with 'role' and 'content' keys, got: {item!r}"
+                        )
                 self._history = data
         except Exception as e:
             raise HistoryError(f"Failed to load history: {e}")

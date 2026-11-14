@@ -1,7 +1,7 @@
 """Configuration classes for agy-connect."""
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List
 import os
 import logging
 from .constants import DEFAULT_TIMEOUT, DEFAULT_MAX_SESSIONS, DEFAULT_CHUNK_SIZE
@@ -38,6 +38,9 @@ class Config:
     # Model alias/name (e.g. "gemini-3.8-flash-low", "gemini-3.8-flash-medium").
     # If None, inherits user settings.json.
     model: Optional[str] = "gemini-3.8-flash-low"
+
+    # Fallback models chain for quota/rate limit failover
+    fallback_models: List[str] = field(default_factory=list)
 
     # Reasoning effort ("low", "medium", "high", "xhigh", "max").
     # If None, inherits model default or user settings.json.

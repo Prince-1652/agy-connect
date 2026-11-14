@@ -2,7 +2,6 @@
 
 import os
 import sys
-import json
 from agy_connect import Chat, Config
 from agy_connect.exceptions import AgyConnectException
 
@@ -67,12 +66,21 @@ def test_sync_send(chat: Chat):
     except AgyConnectException as e:
         print(f"[Error during send]: {e}")
 
+def test_stream_cli(chat: Chat):
+    print("\n--- Testing Live CLI Streaming & Interleaving ---")
+    chat.stream_cli(
+        "List 3 files in current directory using list_dir or run_command.",
+        prefix="Agy> ",
+        on_question=lambda q: {"response": "proceed"},
+    )
+
 def main():
     print("Initializing Chat with custom configuration (DEBUG Mode)...")
     config = Config(
         debug_mode=True,
         idle_timeout=30,
-        max_sessions=3
+        max_sessions=3,
+        fallback_models=["gemini-3.8-flash-medium", "gemini-3.8-flash-low"],
     )
     
     chat = Chat(config)
@@ -83,6 +91,7 @@ def main():
         test_history(chat)
         test_restart(chat)
         test_sync_send(chat)
+        test_stream_cli(chat)
         
         print("\nAll brutal tests completed successfully! Closing chat...")
     finally:

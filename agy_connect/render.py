@@ -32,9 +32,11 @@ class CliLiveRenderer:
         self.show_thinking = show_thinking
 
         self._active_status: Optional[str] = None
-        self._text_started: bool = False
+        self._prefix_printed: bool = False
         self._collected_text: list[str] = []
         self._start_time: float = time.time()
+        self._current_line_dirty: bool = False
+        self._finished: bool = False
 
         enable_ansi()
 
@@ -42,12 +44,21 @@ class CliLiveRenderer:
         """Call immediately when user prompt is submitted for instant feedback."""
         self._start_time = time.time()
         self._active_status = None
-        self._text_started = False
+        self._prefix_printed = False
         self._collected_text.clear()
+        self._current_line_dirty = False
+        self._finished = False
         if self.show_thinking:
             dim = "\033[90m" if self.color else ""
             reset = "\033[0m" if self.color else ""
             self._render_status(f"{dim}* Thinking...{reset}")
+
+    def _ensure_newline(self) -> None:
+        """Ensures the terminal is on a fresh line before status/tool output."""
+        if self._current_line_dirty:
+            self.stream.write("\n")
+            self.stream.flush()
+            self._current_line_dirty = False
 
     def _render_status(self, text: str) -> None:
         """Renders an ephemeral status line without trailing newline."""
@@ -59,7 +70,7 @@ class CliLiveRenderer:
     def clear_status(self) -> None:
         """Clears the active ephemeral status line from the terminal."""
         if self._active_status:
-            self.stream.write("\r\033[K")
+            self.stream.write("\r\033[2K\r")
             self.stream.flush()
             self._active_status = None
 
@@ -68,17 +79,30 @@ class CliLiveRenderer:
         dim = "\033[90m" if self.color else ""
         reset = "\033[0m" if self.color else ""
 
-        if event.is_tool:
+        if event.is_question:
+            self.clear_status()
+            self._ensure_newline()
+            cli_line = event.format_cli(color=self.color)
+            if cli_line:
+                self.stream.write(f"{cli_line}\n")
+                self.stream.flush()
+            self._current_line_dirty = False
+
+        elif event.is_tool:
             cli_line = event.format_cli(color=self.color)
             if not cli_line:
                 return
 
             if event.state == "ACTIVE":
+                self.clear_status()
+                self._ensure_newline()
                 self._render_status(cli_line)
             elif event.state == "DONE":
                 self.clear_status()
+                self._ensure_newline()
                 self.stream.write(f"{cli_line}\n")
                 self.stream.flush()
+                self._current_line_dirty = False
                 # If still working after tool completion, show thinking
                 if self.show_thinking:
                     self._render_status(f"{dim}* Thinking...{reset}")
@@ -90,32 +114,42 @@ class CliLiveRenderer:
             if cli_line:
                 if event.state == "DONE":
                     self.clear_status()
+                    self._ensure_newline()
                     self.stream.write(f"{cli_line}\n")
                     self.stream.flush()
+                    self._current_line_dirty = False
                 else:
+                    self.clear_status()
+                    self._ensure_newline()
                     self._render_status(cli_line)
 
         elif event.text_delta:
-            # First text token: clear any active thinking line and print prompt prefix
-            if not self._text_started:
-                self.clear_status()
+            self.clear_status()
+            # First text token: clear thinking line and print prompt prefix once
+            if not self._prefix_printed:
+                self._ensure_newline()
                 if self.prefix:
                     self.stream.write(self.prefix)
-                self._text_started = True
+                self._prefix_printed = True
 
             self.stream.write(event.text_delta)
             self.stream.flush()
             self._collected_text.append(event.text_delta)
+            self._current_line_dirty = not event.text_delta.endswith("\n")
 
         elif event.event == "result":
             self.finish()
 
     def finish(self) -> str:
-        """Finalizes rendering, clears status, and ensures newline after streamed text."""
+        """Finalizes rendering, clears status, and ensures newline after streamed text. Idempotent."""
+        if self._finished:
+            return "".join(self._collected_text)
+        self._finished = True
         self.clear_status()
-        if self._text_started:
+        if self._current_line_dirty:
             self.stream.write("\n")
             self.stream.flush()
+            self._current_line_dirty = False
         return "".join(self._collected_text)
 
     def get_text(self) -> str:

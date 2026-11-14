@@ -22,11 +22,12 @@ class SessionManager:
         self._lock = asyncio.Lock()
         self._cleanup_task: Optional[asyncio.Task[None]] = None
         
-        # Start cleanup task
-        self._cleanup_task = asyncio.create_task(self._cleanup_loop())
-        
     async def get(self, session_id: str) -> Session:
         """Retrieve an existing session or create a new one."""
+        # Lazily start the cleanup loop on first use (safe inside a running event loop)
+        if self._cleanup_task is None or self._cleanup_task.done():
+            self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+
         async with self._lock:
             if session_id in self._sessions:
                 self._access_times[session_id] = time.time()

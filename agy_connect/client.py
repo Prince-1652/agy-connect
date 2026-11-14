@@ -2,6 +2,7 @@
 
 import os
 import asyncio
+import queue as _queue_mod
 import uuid
 from typing import Iterator, Optional, Dict, Any, List, Callable, Union
 from .config import Config
@@ -27,35 +28,48 @@ class Chat:
         prompt: str,
         on_status: Optional[Callable[[str], Any]] = None,
         on_event: Optional[Callable[[StreamEvent], Any]] = None,
+        on_question: Optional[Callable[[dict], Any]] = None,
     ) -> str:
         """Send a prompt and wait for the full response, optionally receiving status updates."""
-        return _run_coroutine(self._session.send(prompt, on_status=on_status, on_event=on_event))
+        return _run_coroutine(
+            self._session.send(
+                prompt,
+                on_status=on_status,
+                on_event=on_event,
+                on_question=on_question,
+            )
+        )
         
     def stream(
         self,
         prompt: str,
         on_status: Optional[Callable[[str], Any]] = None,
         on_event: Optional[Callable[[StreamEvent], Any]] = None,
+        on_question: Optional[Callable[[dict], Any]] = None,
     ) -> Iterator[str]:
         """Stream the response chunks synchronously with optional real-time status feedback."""
         loop = _get_loop()
-        
-        # We use a thread-safe queue to pass chunks from async generator to sync iterator
-        q: "asyncio.Queue[Union[Optional[str], Exception]]" = asyncio.Queue()
-        
+
+        # Use stdlib queue.Queue for true cross-thread safety (works on all Python 3.9+)
+        q: _queue_mod.Queue[Union[Optional[str], Exception]] = _queue_mod.Queue()
+
         async def _consume_stream() -> None:
             try:
-                async for chunk in self._session.stream(prompt, on_status=on_status, on_event=on_event):
-                    await q.put(chunk)
-                await q.put(None) # EOF
+                async for chunk in self._session.stream(
+                    prompt,
+                    on_status=on_status,
+                    on_event=on_event,
+                    on_question=on_question,
+                ):
+                    q.put(chunk)
+                q.put(None) # EOF
             except Exception as e:
-                await q.put(e)
-                
+                q.put(e)
+
         asyncio.run_coroutine_threadsafe(_consume_stream(), loop)
-        
+
         while True:
-            future = asyncio.run_coroutine_threadsafe(q.get(), loop)
-            item = future.result()
+            item = q.get()
             if item is None:
                 break
             if isinstance(item, Exception):
@@ -67,6 +81,7 @@ class Chat:
         prompt: str,
         prefix: str = "Agy> ",
         show_thinking: bool = True,
+        on_question: Optional[Callable[[dict], Any]] = None,
     ) -> str:
         """
         Stream a prompt with live Antigravity CLI states (thinking, tools, streaming tokens)
@@ -75,30 +90,33 @@ class Chat:
         renderer = CliLiveRenderer(prefix=prefix, show_thinking=show_thinking)
         renderer.start()
         try:
-            for event in self.stream_events(prompt):
+            for event in self.stream_events(prompt, on_question=on_question):
                 renderer.handle_event(event)
         finally:
             renderer.finish()
         return renderer.get_text()
 
-    def stream_events(self, prompt: str) -> Iterator[StreamEvent]:
+    def stream_events(
+        self,
+        prompt: str,
+        on_question: Optional[Callable[[dict], Any]] = None,
+    ) -> Iterator[StreamEvent]:
         """Stream response events (thoughts, tool calls, text deltas) synchronously."""
         loop = _get_loop()
-        q: "asyncio.Queue[Union[Optional[StreamEvent], Exception]]" = asyncio.Queue()
-        
+        q: _queue_mod.Queue[Union[Optional[StreamEvent], Exception]] = _queue_mod.Queue()
+
         async def _consume_events() -> None:
             try:
-                async for event in self._session.stream_events(prompt):
-                    await q.put(event)
-                await q.put(None)
+                async for event in self._session.stream_events(prompt, on_question=on_question):
+                    q.put(event)
+                q.put(None)
             except Exception as e:
-                await q.put(e)
-                
+                q.put(e)
+
         asyncio.run_coroutine_threadsafe(_consume_events(), loop)
-        
+
         while True:
-            future = asyncio.run_coroutine_threadsafe(q.get(), loop)
-            event = future.result()
+            event = q.get()
             if event is None:
                 break
             if isinstance(event, Exception):
