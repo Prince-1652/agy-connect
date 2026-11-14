@@ -41,15 +41,15 @@ However, invoking a CLI tool programmatically often incurs heavy cold-boot costs
 | `gemini-3.8-flash-low` | Google | Flash (Low Reasoning) | Ultra-fast responses with minimal thinking latency |
 | `gemini-3.8-flash-medium` | Google | Flash (Medium Reasoning) | Balanced speed and analytical depth |
 | `gemini-3.8-flash-high` | Google | Flash (High Reasoning) | Deep reasoning with fast token delivery |
+| `claude-sonnet-4-6` | Anthropic | Hybrid Thinking | State-of-the-art coding and architecture reasoning |
+| `claude-opus-4-6-thinking` | Anthropic | Deep Thinking | Complex multi-stage synthesis and deep reasoning |
+| `gpt-oss-120b-medium` | Open Source | Standard | Local/open-source weights reasoning |
 | `gemini-3.7-flash` | Google | Flash | Fast, general-purpose intelligence |
 | `gemini-3.6-flash` | Google | Flash | High-throughput, low-latency generation |
 | `gemini-3.1-pro-high` | Google | Pro (High Reasoning) | Maximum cognitive capacity for complex workflows |
 | `gemini-3.1-pro-low` | Google | Pro (Low Reasoning) | Advanced pro reasoning with streamlined generation |
-| `claude-sonnet-4-6` | Anthropic | Hybrid Thinking | State-of-the-art coding and architecture reasoning |
-| `claude-opus-4-6` | Anthropic | Deep Thinking | Complex multi-stage synthesis and logic |
-| `gpt-oss-120b-medium` | Open Source | Standard | Local/open-source weights reasoning |
 
-Discover models programmatically at any time via `chat.models()` or `list_models()`.
+Discover models programmatically at any time via `chat.models()`, `session.list_models()`, or `list_models()`. Set `model=None` to inherit your global CLI default from `settings.json`.
 
 ---
 
@@ -178,7 +178,7 @@ with Chat() as chat:
 ---
 
 ### 5. Inspecting Rich Stream Events
-Capture detailed lifecycle events (tool invocations, parameters, thoughts, durations):
+Capture detailed lifecycle events (tool invocations, parameters, thoughts, durations, questions):
 
 ```python
 from agy_connect import Chat
@@ -188,7 +188,9 @@ with Chat() as chat:
         if event.is_tool:
             print(f"Tool: {event.tool_name} | State: {event.state} | Duration: {event.duration_seconds}s")
         elif event.is_thinking:
-            print(f"Reasoning update: {event.thinking_delta}")
+            print(f"Reasoning update: {event.thinking_delta or event.format_cli()}")
+        elif event.is_question:
+            print(f"Interactive question: {event.question_data}")
         elif event.is_text:
             print(event.text_delta, end="", flush=True)
 ```
@@ -327,7 +329,7 @@ chat = Chat(config)
 ### `StreamEvent`
 | Attribute | Type | Description |
 |---|---|---|
-| `event` | `str` | Event type (`step_update`, `result`). |
+| `event` | `str` | Event type (`step_update`, `result`, `question`, `interaction`). |
 | `step_type` | `Optional[str]` | Sub-step type (`tool`, `thought`, `agent_response`, `user_input`). |
 | `state` | `Optional[str]` | Execution state (`ACTIVE`, `DONE`, `SUCCESS`, `ERROR`). |
 | `text_delta` | `Optional[str]` | Incremental text content from the assistant. |
@@ -336,7 +338,15 @@ chat = Chat(config)
 | `tool_parameters`| `Optional[Dict]`| Parameters passed to the tool. |
 | `tool_output` | `Optional[str]` | Output string returned by the tool. |
 | `duration_seconds`| `Optional[float]`| Execution time in seconds. |
-| `format_cli()` | `Optional[str]` | Formatted ANSI string matching native CLI terminal style. |
+| `usage` | `Optional[Dict]` | Token counts (`input_tokens`, `output_tokens`, `thinking_tokens`, `total_tokens`). |
+| `question_data` | `Optional[Dict]` | Interactive question content and available options. |
+| `interaction_id`| `Optional[str]` | Unique identifier for interactive prompts. |
+| `is_tool` | `bool` | True if event represents tool invocation. |
+| `is_thinking` | `bool` | True if event represents reasoning/thought. |
+| `is_text` | `bool` | True if event contains generated response tokens. |
+| `is_question` | `bool` | True if event represents an interactive agent question. |
+| `status_message`| `Optional[str]` | Colored CLI status string. |
+| `format_cli(color=True)` | `Optional[str]` | Formatted ANSI string matching native CLI terminal style. |
 
 ---
 
