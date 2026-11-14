@@ -8,48 +8,41 @@
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![PyPI](https://img.shields.io/pypi/v/agy-connect.svg)
 
-**A high-performance Python runtime for Google Antigravity CLI, delivering instant warm execution, token-by-token streaming, dynamic model switching, and authentic CLI progress states.**
+**A high-performance Python runtime and bridge for Google Antigravity CLI, turning your local CLI into a seamless AI provider with instant warm execution, real-time streaming, automated quota failover, and authentic terminal states.**
 
 </div>
 
 ---
 
-## Why agy-connect?
+## Overview
 
-Google Antigravity CLI provides authenticated access to premier AI models (Gemini 3.8 Flash, Gemini 3.1 Pro, Claude Sonnet 4.6, Claude Opus 4.6) directly from your workstation without third-party API key fees.
+The Google Antigravity CLI (`agy`) provides authenticated access to state-of-the-art AI models—including Gemini 3.8 Flash, Claude Sonnet 4.6, Claude Opus 4.6, and GPT-OSS 120B—directly on your workstation.
 
-However, invoking a CLI tool programmatically often incurs heavy cold-boot costs (Go runtime startup, SQLite migrations, credentials checks) and loses rich terminal feedback.
-
-`agy-connect` bridges this gap into a production-grade Python library:
-- **Sub-20ms Startup Latency**: Pre-warmed `WorkerPool` eliminates the typical 8-12 second CLI cold boot.
-- **Bi-Directional Stream-JSON Protocol**: Communicates via persistent, keep-alive stdio streams using Antigravity's native `stream-json` NDJSON protocol.
-- **Native CLI Live Feedback**: Real-time rendering of thinking states (`* Thinking...`), tool executions (`* Running git status` -> `+ Ran git status (0.8s)`), and token streaming.
-- **Interactive Question Handling**: Intercepts `ask_question` and permission prompts, dispatching to your `on_question` hook without hanging the subprocess.
-- **Automated Quota Failover**: Gracefully detects 429 / resource exhaustion and fails over across configurable fallback models transparently.
-- **Dynamic Model Switching**: Switch LLMs on the fly (`chat.switch_model(...)`) within active conversations while seamlessly maintaining full context history.
-- **Rich Event Streaming**: Inspect structured tool parameters, execution durations, thoughts, and text deltas directly in Python.
-- **Dual Async/Sync Support**: Synchronous `Chat` for scripts and bots; asynchronous `SessionManager` for multi-user FastAPI/web services.
+`agy-connect` transforms your local CLI installation into an embeddable Python AI engine:
+- **Zero Cold-Boot Overhead (<20ms)**: Autonomous `WorkerPool` eliminates the 8-12 second Go CLI startup time by pre-warming background processes.
+- **Bi-Directional Stream-JSON Protocol**: Runs persistent keep-alive subprocesses communicating over NDJSON (`--input-format stream-json --output-format stream-json`).
+- **Authentic CLI Progress States**: Recreates native terminal feedback—ephemeral thinking states, live tool execution banners (`* Running <cmd>` -> `+ Ran <cmd> (1.4s)`), and token streaming.
+- **Interactive Question & Permission Handling**: Intercepts `ask_question` and permission dialogs, routing them to your application hook without freezing subprocess pipes.
+- **Automated Quota & Rate-Limit Failover**: Automatically recovers from HTTP 429 or quota limits by cycling through fallback models and replaying turns transparently.
+- **Context-Preserving Model Switching**: Dynamically switch models mid-conversation while retaining complete conversation history.
+- **Dual Synchronous & Asynchronous Architecture**: Clean `Chat` class for scripts and CLI apps; thread-safe, lock-guarded `Session` and `SessionManager` for FastAPI and web backends.
 
 ---
 
-## Supported Models
+## Active Models
 
-`agy-connect` discovers and drives all models supported by your local Antigravity installation:
+`agy-connect` dynamically queries and interfaces with models discovered by your local Antigravity CLI (`agy models`):
 
 | Model ID | Provider | Mode | Description |
 |---|---|---|---|
-| `gemini-3.8-flash-low` | Google | Flash (Low Reasoning) | Ultra-fast responses with minimal thinking latency |
-| `gemini-3.8-flash-medium` | Google | Flash (Medium Reasoning) | Balanced speed and analytical depth |
-| `gemini-3.8-flash-high` | Google | Flash (High Reasoning) | Deep reasoning with fast token delivery |
-| `claude-sonnet-4-6` | Anthropic | Hybrid Thinking | State-of-the-art coding and architecture reasoning |
-| `claude-opus-4-6-thinking` | Anthropic | Deep Thinking | Complex multi-stage synthesis and deep reasoning |
-| `gpt-oss-120b-medium` | Open Source | Standard | Local/open-source weights reasoning |
-| `gemini-3.7-flash` | Google | Flash | Fast, general-purpose intelligence |
-| `gemini-3.6-flash` | Google | Flash | High-throughput, low-latency generation |
-| `gemini-3.1-pro-high` | Google | Pro (High Reasoning) | Maximum cognitive capacity for complex workflows |
-| `gemini-3.1-pro-low` | Google | Pro (Low Reasoning) | Advanced pro reasoning with streamlined generation |
+| `gemini-3.8-flash-low` | Google | Flash (Low) | Lowest reasoning latency for instantaneous chat and routing |
+| `gemini-3.8-flash-medium` | Google | Flash (Medium) | Balanced speed and cognitive depth (default) |
+| `gemini-3.8-flash-high` | Google | Flash (High) | Deep analytical reasoning with fast token throughput |
+| `claude-sonnet-4-6` | Anthropic | Thinking | Premier coding, systems architecture, and complex tool use |
+| `claude-opus-4-6-thinking` | Anthropic | Thinking | Maximum cognitive synthesis for advanced research and logic |
+| `gpt-oss-120b-medium` | Open Source | Standard | High-parameter open-weights reasoning |
 
-Discover models programmatically at any time via `chat.models()`, `session.list_models()`, or `list_models()`. Set `model=None` to inherit your global CLI default from `settings.json`.
+Discover available models programmatically at any time via `chat.models()`, `await session.list_models()`, or `list_models()`. Set `model=None` to inherit your global CLI default from `settings.json`.
 
 ---
 
@@ -61,91 +54,91 @@ Discover models programmatically at any time via `chat.models()`, `session.list_
 
 </div>
 
-### 1. Persistent Keep-Alive Protocol
-Rather than spawning isolated CLI processes per turn, `agy-connect` maintains persistent subprocesses running `--input-format stream-json --output-format stream-json`. Prompts and responses stream continuously over NDJSON pipes, eliminating repeated CLI bootstrap overhead.
+### 1. Persistent IPC Stream Engine
+Rather than launching isolated CLI processes per turn, `agy-connect` maintains persistent subprocesses running Antigravity's bi-directional `stream-json` protocol. Prompts, tool calls, and results stream continuously over standard input/output pipes.
 
-### 2. Autonomous WorkerPool
-Cold-starting a Go-based language server process takes 8-12 seconds on average. `agy-connect` provides an autonomous `WorkerPool` that spawns warm background workers ahead of time, waits for their initialisation event, and hands over pre-authenticated sessions instantly upon request. A background task replenishes depleted workers asynchronously.
+### 2. Autonomous Worker Pool
+Cold-starting a Go-based language runtime incurs heavy startup costs. `WorkerPool` spawns warm workers in the background, verifies their initialization handshake, and hands over pre-authenticated sessions instantly upon request. Depleted workers are replenished automatically.
 
-### 3. Context-Preserved Model Switching
-When switching models mid-session, `agy-connect` leverages native Antigravity session resumption (`--conversation <id>`). History is retained across model switches, allowing applications to start with a fast flash model for intent routing and dynamically escalate to Claude Sonnet or Gemini Pro for coding tasks.
+### 3. Concurrency Protection & History Integrity
+Sessions serialize turns sequentially using asynchronous locking. If a turn is interrupted or fails due to network or process errors, uncompleted user prompts are rolled back automatically, preventing conversation history corruption.
 
 ### 4. Native CLI Visual States (`CliLiveRenderer`)
-`agy-connect` decodes structured `step_update` events from the CLI runtime to reproduce terminal feedback:
-- **Thinking**: Displays an ephemeral `* Thinking...` status line.
-- **Tool Execution**: Displays `* Running <command>`, dynamically overwriting with `+ Ran <command> (<duration>s)` upon completion.
-- **Streaming Tokens**: Clears active status lines and streams tokens with an optional prompt prefix (e.g. `Agy> `).
+`CliLiveRenderer` parses structured stream events to match the native Antigravity terminal experience:
+- **Thinking**: Displays an ephemeral `* Thinking...` status line, resolving into `* Thought (<duration>s)`.
+- **Tool Execution**: Displays single-line sanitized `* Running <command>`, dynamically overwriting with `+ Ran <command> (<duration>s)`.
+- **Streaming Tokens**: Clears ephemeral lines cleanly and renders token streams with customizable prompt prefixes (`Agy> `).
 
 ---
 
 ## Installation
 
 ```bash
-pip install agy-connect
+pip install --upgrade agy-connect
 ```
 
-**Prerequisites:**
+**Requirements:**
 - Python 3.9+
-- [Google Antigravity CLI](https://antigravity.google/product/antigravity-cli) installed and authenticated on your workstation (`agy` executable in PATH or configured via `Config`).
+- [Google Antigravity CLI](https://antigravity.google/product/antigravity-cli) installed and authenticated (`agy` in PATH or configured via `Config`).
 
 ---
 
 ## Quick Start
 
-### 1. Interactive Terminal Chat with Live CLI States
-Using `stream_cli` gives you instant warm startup, live thinking indicators, tool execution feedback, and token-by-token streaming with one call:
+### 1. Live Terminal Chat with CLI Progress States
+`stream_cli` renders authentic thinking states, tool progress, and token streaming with a single call:
 
 ```python
-from agy_connect import Chat, Config, warmup
+from agy_connect import Chat, warmup
 
-# Pre-warm pool worker in background
+# Optional: pre-warm background worker for sub-20ms first turn
 warmup(wait=False)
 
-# Start session
 with Chat() as chat:
     while True:
         try:
-            user_input = input("You> ").strip()
-            if user_input.lower() in ("exit", "quit"):
+            prompt = input("You> ").strip()
+            if prompt.lower() in ("exit", "quit"):
                 break
             
-            # Displays * Thinking..., * Running <cmd>, + Ran <cmd>, and streams tokens
-            chat.stream_cli(user_input, prefix="Agy> ")
+            # Renders * Thinking..., * Running <cmd>, + Ran <cmd>, and streams response
+            chat.stream_cli(prompt, prefix="Agy> ")
         except (KeyboardInterrupt, EOFError):
             break
 ```
 
 ---
 
-### 2. Basic Synchronous Chat
-For automation scripts and simple query pipelines:
+### 2. Synchronous Generation & Multi-Turn Memory
+For scripts and automated pipelines:
 
 ```python
 from agy_connect import Chat
 
 with Chat() as chat:
-    # Send a prompt and receive the full response
-    response = chat.send("Summarize the benefits of event-driven architectures.")
+    # First turn
+    response = chat.send("My project name is CortexEngine.")
     print(response)
 
     # Conversation context is maintained automatically
-    follow_up = chat.send("Give me 3 concrete examples of that.")
-    print(follow_up)
+    follow_up = chat.send("What is my project name?")
+    print(follow_up)  # Recalls CortexEngine
 ```
 
 ---
 
 ### 3. Real-Time Token Streaming
-Iterate over streamed tokens as they are generated:
+Iterate over chunks as they arrive:
 
 ```python
 import sys
 from agy_connect import Chat
 
 with Chat() as chat:
-    print("Agy> ", end="", flush=True)
-    for token in chat.stream("Write a Python generator for Fibonacci numbers."):
-        sys.stdout.write(token)
+    sys.stdout.write("Agy> ")
+    sys.stdout.flush()
+    for chunk in chat.stream("Write a clean Python singleton pattern."):
+        sys.stdout.write(chunk)
         sys.stdout.flush()
     print()
 ```
@@ -153,52 +146,67 @@ with Chat() as chat:
 ---
 
 ### 4. Dynamic Model Switching
-List discovered models and switch the active model at runtime without losing conversation history:
+Switch models mid-session without losing conversation history:
 
 ```python
 from agy_connect import Chat
 
 with Chat() as chat:
-    # Inspect models available in your CLI
-    models = chat.models()
-    for m in models:
-        print(f"[{m['id']}] {m['name']}")
+    chat.send("Our target database is PostgreSQL.")
 
-    # Start conversation on fast model
-    chat.send("My project name is AlphaForge.")
-
-    # Dynamically escalate to high-reasoning Claude Sonnet with preserved context
+    # Dynamically escalate to Claude Sonnet with full context preserved
     chat.switch_model("claude-sonnet-4-6")
-    
-    # Model recalls "AlphaForge" without re-sending prompt history
-    reply = chat.send("What is my project name and how should I architect it?")
+
+    # Claude recalls previous context seamlessly
+    reply = chat.send("Write an async migration script for our database.")
     print(reply)
 ```
 
 ---
 
-### 5. Inspecting Rich Stream Events
-Capture detailed lifecycle events (tool invocations, parameters, thoughts, durations, questions):
+### 5. Interactive Question & Permission Callbacks
+When an agent invokes `ask_question` or requests approval, `agy-connect` forwards the prompt to your `on_question` callback and replies over stdin:
 
 ```python
 from agy_connect import Chat
 
+def handle_question(q: dict) -> dict:
+    options = q.get("options", [])
+    if options:
+        # Programmatic selection or interactive user prompt
+        return {"selected": options[0]}
+    return {"response": "proceed"}
+
 with Chat() as chat:
-    for event in chat.stream_events("List the files in the current directory."):
-        if event.is_tool:
-            print(f"Tool: {event.tool_name} | State: {event.state} | Duration: {event.duration_seconds}s")
-        elif event.is_thinking:
-            print(f"Reasoning update: {event.thinking_delta or event.format_cli()}")
-        elif event.is_question:
-            print(f"Interactive question: {event.question_data}")
-        elif event.is_text:
-            print(event.text_delta, end="", flush=True)
+    reply = chat.send(
+        "Initialize project configuration and scaffold directories",
+        on_question=handle_question
+    )
+    print(reply)
 ```
 
 ---
 
-### 6. Asynchronous Multi-User Applications (FastAPI)
-Manage independent sessions across concurrent users using `SessionManager`:
+### 6. Automated Quota & Rate-Limit Failover
+Configure fallback models. If a 429 or quota limit is reached mid-session, `agy-connect` automatically falls back to the next model in the chain and replays the turn:
+
+```python
+from agy_connect import Chat, Config
+
+config = Config(
+    model="gemini-3.8-flash-high",
+    fallback_models=["gemini-3.8-flash-medium", "gemini-3.8-flash-low"]
+)
+
+with Chat(config) as chat:
+    response = chat.send("Analyze system telemetry and produce a performance summary.")
+    print(response)
+```
+
+---
+
+### 7. Asynchronous Multi-User Services (FastAPI)
+Manage concurrent user sessions using `SessionManager`:
 
 ```python
 from fastapi import FastAPI
@@ -225,104 +233,88 @@ async def shutdown():
 
 ---
 
-### 7. Interactive Question & Choice Handling
-When an agent invokes `ask_question` or requests confirmation, `agy-connect` routes the payload to your `on_question` handler, allowing your application to respond interactively via terminal, web UI, or headless automation:
+### 8. Inspecting Structured Stream Events
+Inspect granular lifecycle events (tools, thoughts, tokens, questions):
 
 ```python
 from agy_connect import Chat
 
-def answer_prompt(question_payload: dict) -> dict:
-    options = question_payload.get("options", [])
-    if options:
-        # Pick choice programmatically or prompt your user
-        return {"selected": options[0]}
-    return {"response": "proceed"}
-
 with Chat() as chat:
-    reply = chat.send(
-        "Set up an optimal SQLite database schema for users",
-        on_question=answer_prompt
-    )
-    print(reply)
+    for event in chat.stream_events("Check git status and summarize active branch"):
+        if event.is_tool:
+            print(f"Tool: {event.tool_name} | State: {event.state} | {event.duration_seconds}s")
+        elif event.is_thinking:
+            print(f"Thinking: {event.format_cli()}")
+        elif event.is_question:
+            print(f"Question Prompt: {event.question_data}")
+        elif event.is_text:
+            print(event.text_delta, end="", flush=True)
 ```
 
 ---
 
-### 8. Automated Quota & Rate-Limit Failover
-Configure a fallback model chain. When the CLI reports HTTP 429 or quota exhaustion, `agy-connect` automatically switches to the next fallback model and replays the prompt without crashing:
+## Configuration Reference
+
+Configure session parameters, models, timeouts, and process execution via `Config`:
 
 ```python
-from agy_connect import Chat, Config
+from agy_connect import Config
 
 config = Config(
-    model="gemini-3.8-flash-high",
-    fallback_models=["gemini-3.8-flash-medium", "gemini-3.8-flash-low"]
+    model="gemini-3.8-flash-medium",       # Target AI model (None for CLI settings.json default)
+    fallback_models=["gemini-3.8-flash-low"], # Automatic failover models on quota exhaustion
+    effort=None,                            # Reasoning effort: "low"|"medium"|"high"|"xhigh"|"max"
+    use_pool=True,                          # Instant handover from pre-warmed WorkerPool
+    auto_warmup=True,                       # Pre-warm worker pool during startup
+    dangerously_skip_permissions=True,      # Auto-approve tool execution without blocking
+    working_directory=".",                  # Working directory for CLI execution
+    executable_path=None,                   # Custom path to 'agy' executable (auto-discovered if None)
+    idle_timeout=300.0,                     # Idle session cleanup threshold in seconds
+    max_sessions=10,                        # Maximum concurrent sessions in SessionManager
+    stream_chunk_size=4096,                 # Chunk read size in bytes
+    debug_mode=False,                       # Enable verbose library debugging
+    log_file=None,                          # Optional file path for library logs
+    auto_recover=True                       # Automatically restart process on crash
 )
-
-with Chat(config) as chat:
-    # If flash-high hits quota limits, automatically retries on flash-medium
-    response = chat.send("Generate a comprehensive system architecture document.")
-    print(response)
-```
-
----
-
-## Configuration
-
-Configure session parameters, worker pools, paths, and timeouts via `Config`:
-
-```python
-from agy_connect import Chat, Config
-
-config = Config(
-    model="gemini-3.8-flash-low",          # Target AI model (None for CLI default)
-    fallback_models=["gemini-3.8-flash-medium"], # Fallback chain on 429 quota exhaustion
-    effort=None,                           # Reasoning effort: "low"|"medium"|"high"|"xhigh"|"max"
-    use_pool=True,                         # Instant handover from WorkerPool
-    auto_warmup=True,                      # Pre-warm pool during instantiation
-    dangerously_skip_permissions=True,     # Allow CLI tool execution without modal prompts
-    working_directory=".",                 # Subprocess working directory
-    executable_path=None,                  # Custom path to 'agy' binary (auto-discovered if None)
-    idle_timeout=300,                      # Idle timeout in seconds
-    debug_mode=False                       # Enable verbose logging
-)
-
-chat = Chat(config)
 ```
 
 ---
 
 ## API Reference
 
-### `Chat`
-| Method | Description |
-|---|---|
-| `send(prompt, on_status=None, on_event=None, on_question=None)` | Sends prompt synchronously and returns complete response string. |
-| `stream(prompt, on_status=None, on_event=None, on_question=None)` | Yields response tokens as a synchronous iterator. |
-| `stream_cli(prompt, prefix="Agy> ", show_thinking=True, on_question=None)` | Streams response with live terminal states (`* Thinking...`, `* Running`, `+ Ran`). |
-| `stream_events(prompt, on_question=None)` | Yields structured `StreamEvent` objects (tools, thoughts, text, questions). |
-| `switch_model(model_id, effort=None)` | Switches active model dynamically while preserving conversation history. |
-| `models()` | Discovers all available models supported by the local Antigravity installation. |
-| `history()` | Returns current conversation history list. |
-| `save(filepath=None)` | Persists conversation history to a JSON file. |
-| `load(filepath)` | Restores conversation history from a JSON file. |
-| `reset()` | Clears conversation memory. |
-| `status()` | Returns adapter state (`READY`, `STREAMING`, `ERROR`, `STOPPED`). |
-| `health()` | Returns process health metrics (PID, uptime, process alive). |
-| `restart()` | Restarts underlying CLI subprocess. |
-| `close()` | Gracefully terminates session and releases process resources. |
+### `Chat` (Synchronous Client)
+| Method | Return Type | Description |
+|---|---|---|
+| `send(prompt, on_status=None, on_event=None, on_question=None)` | `str` | Sends prompt and returns full response string. |
+| `stream(prompt, on_status=None, on_event=None, on_question=None)` | `Iterator[str]` | Synchronous generator yielding text chunks as they arrive. |
+| `stream_cli(prompt, prefix="Agy> ", show_thinking=True, on_question=None)` | `str` | Renders live thinking indicators, tools, and token stream to stdout. |
+| `stream_events(prompt, on_question=None)` | `Iterator[StreamEvent]` | Synchronous generator yielding rich lifecycle events. |
+| `switch_model(model_id, effort=None)` | `None` | Switches active model while preserving conversation history. |
+| `models()` | `List[Dict[str, str]]` | Discovers available models from local Antigravity CLI. |
+| `history()` | `List[Dict[str, str]]` | Retrieves active conversation history. |
+| `save(filepath=None)` | `None` | Persists conversation history to a JSON file. |
+| `load(filepath)` | `None` | Restores conversation history from a JSON file. |
+| `reset()` | `None` | Resets conversation history. |
+| `status()` | `str` | Current adapter state (`READY`, `STREAMING`, `ERROR`, `STOPPED`). |
+| `health()` | `Dict[str, Any]` | Process metrics (alive, PID, uptime, error state). |
+| `restart()` | `None` | Gracefully restarts the underlying CLI process. |
+| `interrupt()` | `None` | Interrupts current execution by restarting the process. |
+| `close()` | `None` | Terminates process and releases resources. |
 
-### `Session` (Async)
-| Method | Description |
-|---|---|
-| `await send(prompt, on_status=None, on_event=None, on_question=None)` | Asynchronous prompt execution. |
-| `async for chunk in stream(prompt, ...)` | Asynchronous token streaming generator. |
-| `async for event in stream_events(prompt, ...)` | Asynchronous structured event generator. |
-| `await switch_model(model_id, effort=None)` | Asynchronously switches active model while retaining context. |
-| `await list_models()` | Non-blocking model discovery. |
-| `status()` | Returns current adapter state. |
-| `save(filepath)` / `load(filepath)` / `reset()` | Session history management. |
-| `await cleanup()` | Gracefully stops the session and subprocess. |
+---
+
+### `Session` (Asynchronous Client)
+| Method | Return Type | Description |
+|---|---|---|
+| `await send(prompt, on_status=None, on_event=None, on_question=None)` | `str` | Asynchronously sends prompt and returns response string. |
+| `async for chunk in stream(prompt, ...)` | `AsyncGenerator[str]` | Asynchronous generator yielding response tokens. |
+| `async for event in stream_events(prompt, ...)` | `AsyncGenerator[StreamEvent]` | Asynchronous generator yielding rich `StreamEvent` objects. |
+| `await switch_model(model_id, effort=None)` | `None` | Dynamically switches model while preserving context. |
+| `await list_models()` | `List[Dict[str, str]]` | Non-blocking async model discovery. |
+| `status()` | `str` | Returns current session adapter state. |
+| `save(filepath)` / `load(filepath)` / `reset()` | `None` | Manages session history serialization. |
+| `await restart(conversation_id=None)` | `None` | Asynchronously restarts underlying process. |
+| `await cleanup()` | `None` | Terminates session process and cleans up resources. |
 
 ---
 
@@ -331,22 +323,22 @@ chat = Chat(config)
 |---|---|---|
 | `event` | `str` | Event type (`step_update`, `result`, `question`, `interaction`). |
 | `step_type` | `Optional[str]` | Sub-step type (`tool`, `thought`, `agent_response`, `user_input`). |
-| `state` | `Optional[str]` | Execution state (`ACTIVE`, `DONE`, `SUCCESS`, `ERROR`). |
-| `text_delta` | `Optional[str]` | Incremental text content from the assistant. |
-| `thinking_delta`| `Optional[str]` | Incremental reasoning/thinking content. |
-| `tool_name` | `Optional[str]` | Name of the tool being executed (e.g. `run_command`, `read_file`). |
-| `tool_parameters`| `Optional[Dict]`| Parameters passed to the tool. |
+| `state` | `Optional[str]` | State (`ACTIVE`, `DONE`, `SUCCESS`, `ERROR`). |
+| `text_delta` | `Optional[str]` | Incremental assistant response token text. |
+| `thinking_delta` | `Optional[str]` | Incremental reasoning/thought content. |
+| `tool_name` | `Optional[str]` | Tool executed (`run_command`, `read_file`, `write_file`, etc.). |
+| `tool_parameters` | `Optional[Dict]` | Parameters passed to the tool. |
 | `tool_output` | `Optional[str]` | Output string returned by the tool. |
-| `duration_seconds`| `Optional[float]`| Execution time in seconds. |
+| `duration_seconds` | `Optional[float]` | Execution time of the tool or thinking step. |
 | `usage` | `Optional[Dict]` | Token counts (`input_tokens`, `output_tokens`, `thinking_tokens`, `total_tokens`). |
-| `question_data` | `Optional[Dict]` | Interactive question content and available options. |
-| `interaction_id`| `Optional[str]` | Unique identifier for interactive prompts. |
+| `question_data` | `Optional[Dict]` | Question payload and interactive options. |
+| `interaction_id` | `Optional[str]` | Unique interaction identifier. |
 | `is_tool` | `bool` | True if event represents tool invocation. |
 | `is_thinking` | `bool` | True if event represents reasoning/thought. |
-| `is_text` | `bool` | True if event contains generated response tokens. |
-| `is_question` | `bool` | True if event represents an interactive agent question. |
-| `status_message`| `Optional[str]` | Colored CLI status string. |
-| `format_cli(color=True)` | `Optional[str]` | Formatted ANSI string matching native CLI terminal style. |
+| `is_text` | `bool` | True if event contains response tokens. |
+| `is_question` | `bool` | True if event represents an interactive question. |
+| `status_message` | `Optional[str]` | Formatted CLI status message. |
+| `format_cli(color=True)` | `Optional[str]` | ANSI formatted line matching native CLI terminal style. |
 
 ---
 
